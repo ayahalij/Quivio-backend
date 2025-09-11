@@ -6,8 +6,26 @@ import os
 import time
 
 from app.core.config import settings
-# We'll uncomment these as we create the routers
-# from app.api.endpoints import auth, users, daily, photos, challenges, capsules, timeline
+from app.database import engine, Base
+
+# Import all models to register them with Base
+try:
+    from app.models import user, mood, diary, photo, challenge, capsule, achievement
+    print("✅ All models imported successfully")
+except ImportError as e:
+    print(f"❌ Model import error: {e}")
+
+# Try to import auth router
+try:
+    from app.api.endpoints import auth
+    auth_available = True
+    print("✅ Auth router imported successfully")
+except ImportError as e:
+    print(f"❌ Auth router import error: {e}")
+    auth_available = False
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 # Create FastAPI instance
 app = FastAPI(
@@ -38,14 +56,9 @@ async def add_process_time_header(request: Request, call_next):
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Include routers (we'll uncomment these as we create them)
-# app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-# app.include_router(users.router, prefix="/users", tags=["Users"])
-# app.include_router(daily.router, prefix="/daily", tags=["Daily Entries"])
-# app.include_router(photos.router, prefix="/photos", tags=["Photos"])
-# app.include_router(challenges.router, prefix="/challenges", tags=["Challenges"])
-# app.include_router(capsules.router, prefix="/capsules", tags=["Capsules"])
-# app.include_router(timeline.router, prefix="/timeline", tags=["Timeline"])
+# Include routers if available
+if auth_available:
+    app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 
 # Root endpoint
 @app.get("/")
@@ -54,7 +67,8 @@ async def root():
         "message": "Welcome to Quivio API",
         "version": "1.0.0",
         "docs": "/docs",
-        "status": "healthy"
+        "status": "healthy",
+        "auth_available": auth_available
     }
 
 # Health check endpoint
@@ -63,7 +77,8 @@ async def health_check():
     return {
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
-        "timestamp": time.time()
+        "timestamp": time.time(),
+        "auth_available": auth_available
     }
 
 # Global exception handler
@@ -74,6 +89,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={
             "detail": "Internal server error",
             "path": str(request.url),
-            "method": request.method
+            "method": request.method,
+            "error": str(exc) if settings.DEBUG else "Internal server error"
         }
     )
