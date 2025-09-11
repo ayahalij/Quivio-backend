@@ -24,6 +24,24 @@ except ImportError as e:
     print(f"❌ Auth router import error: {e}")
     auth_available = False
 
+# Try to import daily router
+try:
+    from app.api.endpoints import daily
+    daily_available = True
+    print("✅ Daily router imported successfully")
+except ImportError as e:
+    print(f"❌ Daily router import error: {e}")
+    daily_available = False
+
+# Try to import challenges router
+try:
+    from app.api.endpoints import challenges
+    challenges_available = True
+    print("✅ Challenges router imported successfully")
+except ImportError as e:
+    print(f"❌ Challenges router import error: {e}")
+    challenges_available = False
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
@@ -60,6 +78,12 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 if auth_available:
     app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 
+if daily_available:
+    app.include_router(daily.router, prefix="/daily", tags=["Daily Entries"])
+
+if challenges_available:
+    app.include_router(challenges.router, prefix="/challenges", tags=["Challenges"])
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -68,7 +92,9 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
         "status": "healthy",
-        "auth_available": auth_available
+        "auth_available": auth_available,
+        "daily_available": daily_available,
+        "challenges_available": challenges_available
     }
 
 # Health check endpoint
@@ -78,7 +104,9 @@ async def health_check():
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
         "timestamp": time.time(),
-        "auth_available": auth_available
+        "auth_available": auth_available,
+        "daily_available": daily_available,
+        "challenges_available": challenges_available
     }
 
 # Global exception handler

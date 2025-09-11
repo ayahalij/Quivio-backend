@@ -14,16 +14,9 @@ async def register(
 ):
     """Register a new user"""
     try:
-        # Create user
         user = AuthService.create_user(db, user_data)
-        
-        # Create tokens
         tokens = AuthService.create_tokens(user)
-        
-        return {
-            **tokens,
-            "user": user
-        }
+        return {**tokens, "user": user}
     except HTTPException:
         raise
     except Exception as e:
@@ -47,13 +40,8 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # Create tokens
     tokens = AuthService.create_tokens(user)
-    
-    return {
-        **tokens,
-        "user": user
-    }
+    return {**tokens, "user": user}
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
