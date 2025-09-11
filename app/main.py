@@ -51,6 +51,15 @@ except ImportError as e:
     print(f"❌ Timeline router import error: {e}")
     timeline_available = False
 
+# Try to import users router
+try:
+    from app.api.endpoints import users
+    users_available = True
+    print("✅ Users router imported successfully")
+except ImportError as e:
+    print(f"❌ Users router import error: {e}")
+    users_available = False
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
@@ -95,6 +104,9 @@ if challenges_available:
 
 if timeline_available:
     app.include_router(timeline.router, prefix="/timeline", tags=["Timeline"])
+
+if users_available:
+    app.include_router(users.router, prefix="/users", tags=["Users"])
 
 # Root endpoint
 @app.get("/")
