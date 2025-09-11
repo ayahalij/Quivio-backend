@@ -42,6 +42,15 @@ except ImportError as e:
     print(f"❌ Challenges router import error: {e}")
     challenges_available = False
 
+# Try to import timeline router
+try:
+    from app.api.endpoints import timeline
+    timeline_available = True
+    print("✅ Timeline router imported successfully")
+except ImportError as e:
+    print(f"❌ Timeline router import error: {e}")
+    timeline_available = False
+
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
@@ -83,6 +92,9 @@ if daily_available:
 
 if challenges_available:
     app.include_router(challenges.router, prefix="/challenges", tags=["Challenges"])
+
+if timeline_available:
+    app.include_router(timeline.router, prefix="/timeline", tags=["Timeline"])
 
 # Root endpoint
 @app.get("/")
