@@ -4,6 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import os
 import time
+from app.api.endpoints import capsules
+
 
 from app.core.config import settings
 from app.database import engine, Base
@@ -145,3 +147,5 @@ async def global_exception_handler(request: Request, exc: Exception):
             "error": str(exc) if settings.DEBUG else "Internal server error"
         }
     )
+
+app.include_router(capsules.router, prefix="/capsules", tags=["Capsules"])
