@@ -58,6 +58,7 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = None
     language: Optional[str] = None
     theme_mode: Optional[str] = None
+    avatar_url: Optional[str] = None  # Added avatar support
     
     @validator('username')
     def validate_username(cls, v):
