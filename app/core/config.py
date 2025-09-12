@@ -17,10 +17,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE: int = 10485760  # 10MB
     
-    # Cloudinary
-    CLOUDINARY_CLOUD_NAME: str = 'dyq86hr38'
-    CLOUDINARY_API_KEY: str = '689338187517471'
-    CLOUDINARY_API_SECRET: str = 'WcIuDIupzD49hEDjO2DsBv5oDMk'
+    
         
     # Email
     SMTP_HOST: str = ""
