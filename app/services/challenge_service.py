@@ -4,7 +4,7 @@ from app.models.user import User
 from app.models.mood import Mood
 from app.models.challenge import DailyChallenge, UserChallenge
 from app.schemas.challenge import UserChallengeCreate, ChallengeResponse
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List
 import random
 
@@ -93,7 +93,7 @@ class ChallengeService:
         photo_url: Optional[str] = None
     ) -> UserChallenge:
         """Complete a challenge"""
-        # Find today's challenge
+        # Find the user's challenge for today
         user_challenge = db.query(UserChallenge).filter(
             UserChallenge.user_id == user.id,
             UserChallenge.challenge_id == challenge_id,
@@ -115,7 +115,7 @@ class ChallengeService:
         # Mark as completed
         user_challenge.is_completed = True
         user_challenge.photo_url = photo_url
-        user_challenge.completed_at = db.execute("SELECT CURRENT_TIMESTAMP").scalar()
+        user_challenge.completed_at = datetime.now()  # FIXED: Use datetime.now() instead of SQL
         
         db.commit()
         db.refresh(user_challenge)
