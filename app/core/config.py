@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from typing import List
 import os
+import cloudinary
 
 class Settings(BaseSettings):
     # Database
@@ -17,10 +18,10 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 10485760  # 10MB
     
     # Cloudinary
-    CLOUDINARY_CLOUD_NAME: str = ""
-    CLOUDINARY_API_KEY: str = ""
-    CLOUDINARY_API_SECRET: str = ""
-    
+    CLOUDINARY_CLOUD_NAME: str = 'dyq86hr38'
+    CLOUDINARY_API_KEY: str = '689338187517471'
+    CLOUDINARY_API_SECRET: str = 'WcIuDIupzD49hEDjO2DsBv5oDMk'
+        
     # Email
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
@@ -39,3 +40,10 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 settings = Settings()
+
+# Configure cloudinary with the actual settings
+cloudinary.config(
+    cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+    api_key=settings.CLOUDINARY_API_KEY,
+    api_secret=settings.CLOUDINARY_API_SECRET
+)

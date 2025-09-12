@@ -6,6 +6,7 @@ import os
 import time
 from app.api.endpoints import capsules
 from app.api.endpoints import analytics
+from app.api.endpoints import photos
 
 
 from app.core.config import settings
@@ -152,3 +153,5 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(capsules.router, prefix="/capsules", tags=["Capsules"])
 
 app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
+
+app.include_router(photos.router, prefix="/photos", tags=["Photos"])

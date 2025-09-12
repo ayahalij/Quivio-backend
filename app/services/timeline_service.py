@@ -5,6 +5,7 @@ from app.models.mood import Mood
 from app.models.diary import DiaryEntry
 from app.models.photo import Photo
 from app.models.challenge import UserChallenge
+from app.models.capsule import Capsule
 from datetime import date, datetime
 from typing import List, Dict, Optional
 import calendar
@@ -27,16 +28,16 @@ class TimelineService:
         moods = db.query(Mood).filter(
             and_(
                 Mood.user_id == user.id,
-                Mood.date >= first_day,
-                Mood.date <= last_day
+                func.date(Mood.created_at) >= first_day,
+                func.date(Mood.created_at) <= last_day
             )
         ).all()
         
         diary_entries = db.query(DiaryEntry).filter(
             and_(
                 DiaryEntry.user_id == user.id,
-                DiaryEntry.date >= first_day,
-                DiaryEntry.date <= last_day
+                func.date(DiaryEntry.created_at) >= first_day,
+                func.date(DiaryEntry.created_at) <= last_day
             )
         ).all()
         
@@ -51,8 +52,27 @@ class TimelineService:
         challenges = db.query(UserChallenge).filter(
             and_(
                 UserChallenge.user_id == user.id,
-                UserChallenge.date >= first_day,
-                UserChallenge.date <= last_day
+                func.date(UserChallenge.created_at) >= first_day,
+                func.date(UserChallenge.created_at) <= last_day
+            )
+        ).all()
+        
+        # Get capsules created in this month
+        capsules_created = db.query(Capsule).filter(
+            and_(
+                Capsule.user_id == user.id,
+                func.date(Capsule.created_at) >= first_day,
+                func.date(Capsule.created_at) <= last_day
+            )
+        ).all()
+        
+        # Get capsules opened in this month
+        capsules_opened = db.query(Capsule).filter(
+            and_(
+                Capsule.user_id == user.id,
+                Capsule.is_opened == True,
+                func.date(Capsule.opened_at) >= first_day,
+                func.date(Capsule.opened_at) <= last_day
             )
         ).all()
         
@@ -61,7 +81,7 @@ class TimelineService:
         
         # Process moods
         for mood in moods:
-            date_str = mood.date.isoformat()
+            date_str = mood.created_at.date().isoformat()
             if date_str not in calendar_data:
                 calendar_data[date_str] = {}
             calendar_data[date_str]['mood'] = {
@@ -72,7 +92,7 @@ class TimelineService:
         
         # Process diary entries
         for entry in diary_entries:
-            date_str = entry.date.isoformat()
+            date_str = entry.created_at.date().isoformat()
             if date_str not in calendar_data:
                 calendar_data[date_str] = {}
             calendar_data[date_str]['diary'] = {
@@ -97,7 +117,7 @@ class TimelineService:
         
         # Process challenges
         for challenge in challenges:
-            date_str = challenge.date.isoformat()
+            date_str = challenge.created_at.date().isoformat()
             if date_str not in calendar_data:
                 calendar_data[date_str] = {}
             calendar_data[date_str]['challenge'] = {
@@ -106,6 +126,40 @@ class TimelineService:
                 'is_completed': challenge.is_completed,
                 'difficulty': challenge.challenge.difficulty_level if challenge.challenge else None
             }
+        
+        # Process capsules created
+        for capsule in capsules_created:
+            date_str = capsule.created_at.date().isoformat()
+            if date_str not in calendar_data:
+                calendar_data[date_str] = {}
+            if 'capsules' not in calendar_data[date_str]:
+                calendar_data[date_str]['capsules'] = {}
+            if 'created' not in calendar_data[date_str]['capsules']:
+                calendar_data[date_str]['capsules']['created'] = []
+            
+            calendar_data[date_str]['capsules']['created'].append({
+                'id': capsule.id,
+                'title': capsule.title,
+                'open_date': capsule.open_date.isoformat(),
+                'is_opened': capsule.is_opened
+            })
+        
+        # Process capsules opened
+        for capsule in capsules_opened:
+            date_str = capsule.opened_at.date().isoformat()
+            if date_str not in calendar_data:
+                calendar_data[date_str] = {}
+            if 'capsules' not in calendar_data[date_str]:
+                calendar_data[date_str]['capsules'] = {}
+            if 'opened' not in calendar_data[date_str]['capsules']:
+                calendar_data[date_str]['capsules']['opened'] = []
+                
+            calendar_data[date_str]['capsules']['opened'].append({
+                'id': capsule.id,
+                'title': capsule.title,
+                'created_date': capsule.created_at.date().isoformat(),
+                'message': capsule.message[:100] + '...' if len(capsule.message) > 100 else capsule.message
+            })
         
         return {
             'year': year,
@@ -187,7 +241,7 @@ class TimelineService:
                 DiaryEntry.user_id == user.id,
                 func.lower(DiaryEntry.content).like(search_pattern)
             )
-        ).order_by(DiaryEntry.date.desc()).limit(limit).all()
+        ).order_by(DiaryEntry.created_at.desc()).limit(limit).all()
         
         # Search mood notes
         mood_results = db.query(Mood).filter(
@@ -196,7 +250,18 @@ class TimelineService:
                 Mood.note.isnot(None),
                 func.lower(Mood.note).like(search_pattern)
             )
-        ).order_by(Mood.date.desc()).limit(limit).all()
+        ).order_by(Mood.created_at.desc()).limit(limit).all()
+        
+        # Search capsule titles and messages
+        capsule_results = db.query(Capsule).filter(
+            and_(
+                Capsule.user_id == user.id,
+                or_(
+                    func.lower(Capsule.title).like(search_pattern),
+                    func.lower(Capsule.message).like(search_pattern)
+                )
+            )
+        ).order_by(Capsule.created_at.desc()).limit(limit).all()
         
         # Combine and format results
         results = []
@@ -215,7 +280,7 @@ class TimelineService:
             
             results.append({
                 'type': 'diary',
-                'date': entry.date.isoformat(),
+                'date': entry.created_at.date().isoformat(),
                 'excerpt': excerpt,
                 'word_count': entry.word_count,
                 'id': entry.id
@@ -224,10 +289,38 @@ class TimelineService:
         for mood in mood_results:
             results.append({
                 'type': 'mood',
-                'date': mood.date.isoformat(),
+                'date': mood.created_at.date().isoformat(),
                 'excerpt': mood.note,
                 'mood_level': mood.mood_level,
                 'id': mood.id
+            })
+        
+        for capsule in capsule_results:
+            # Create excerpt from title and message
+            title_match = search_term.lower() in capsule.title.lower()
+            if title_match:
+                excerpt = f"Capsule: {capsule.title}"
+            else:
+                # Find excerpt in message
+                message_lower = capsule.message.lower()
+                search_lower = search_term.lower()
+                start_idx = max(0, message_lower.find(search_lower) - 30)
+                end_idx = min(len(capsule.message), start_idx + 100)
+                excerpt = capsule.message[start_idx:end_idx]
+                if start_idx > 0:
+                    excerpt = "..." + excerpt
+                if end_idx < len(capsule.message):
+                    excerpt = excerpt + "..."
+                excerpt = f"Capsule '{capsule.title}': {excerpt}"
+            
+            results.append({
+                'type': 'capsule',
+                'date': capsule.created_at.date().isoformat(),
+                'excerpt': excerpt,
+                'title': capsule.title,
+                'open_date': capsule.open_date.isoformat(),
+                'is_opened': capsule.is_opened,
+                'id': capsule.id
             })
         
         # Sort by date (newest first)
@@ -247,11 +340,17 @@ class TimelineService:
     ) -> Dict:
         """Get complete entry details for a specific date"""
         mood = db.query(Mood).filter(
-            and_(Mood.user_id == user.id, Mood.date == entry_date)
+            and_(
+                Mood.user_id == user.id, 
+                func.date(Mood.created_at) == entry_date
+            )
         ).first()
         
         diary = db.query(DiaryEntry).filter(
-            and_(DiaryEntry.user_id == user.id, DiaryEntry.date == entry_date)
+            and_(
+                DiaryEntry.user_id == user.id, 
+                func.date(DiaryEntry.created_at) == entry_date
+            )
         ).first()
         
         photos = db.query(Photo).filter(
@@ -259,8 +358,28 @@ class TimelineService:
         ).all()
         
         challenge = db.query(UserChallenge).filter(
-            and_(UserChallenge.user_id == user.id, UserChallenge.date == entry_date)
+            and_(
+                UserChallenge.user_id == user.id, 
+                func.date(UserChallenge.created_at) == entry_date
+            )
         ).first()
+        
+        # Get capsules created on this date
+        capsules_created = db.query(Capsule).filter(
+            and_(
+                Capsule.user_id == user.id,
+                func.date(Capsule.created_at) == entry_date
+            )
+        ).all()
+        
+        # Get capsules opened on this date
+        capsules_opened = db.query(Capsule).filter(
+            and_(
+                Capsule.user_id == user.id,
+                Capsule.is_opened == True,
+                func.date(Capsule.opened_at) == entry_date
+            )
+        ).all()
         
         return {
             'date': entry_date.isoformat(),
@@ -288,5 +407,22 @@ class TimelineService:
                 'is_completed': challenge.is_completed if challenge else False,
                 'difficulty': challenge.challenge.difficulty_level if challenge and challenge.challenge else None,
                 'photo_url': challenge.photo_url if challenge else None
-            } if challenge else None
+            } if challenge else None,
+            'capsules': {
+                'created': [{
+                    'id': capsule.id,
+                    'title': capsule.title,
+                    'message': capsule.message,
+                    'open_date': capsule.open_date.isoformat(),
+                    'is_opened': capsule.is_opened,
+                    'created_at': capsule.created_at.isoformat()
+                } for capsule in capsules_created],
+                'opened': [{
+                    'id': capsule.id,
+                    'title': capsule.title,
+                    'message': capsule.message,
+                    'created_date': capsule.created_at.date().isoformat(),
+                    'opened_at': capsule.opened_at.isoformat()
+                } for capsule in capsules_opened]
+            }
         }
