@@ -24,20 +24,20 @@ class TimelineService:
         first_day = date(year, month, 1)
         last_day = date(year, month, calendar.monthrange(year, month)[1])
         
-        # Get all entries for the month
+        # FIXED: Use the date field directly instead of func.date(created_at)
         moods = db.query(Mood).filter(
             and_(
                 Mood.user_id == user.id,
-                func.date(Mood.created_at) >= first_day,
-                func.date(Mood.created_at) <= last_day
+                Mood.date >= first_day,  # Changed from func.date(Mood.created_at)
+                Mood.date <= last_day   # Changed from func.date(Mood.created_at)
             )
         ).all()
         
         diary_entries = db.query(DiaryEntry).filter(
             and_(
                 DiaryEntry.user_id == user.id,
-                func.date(DiaryEntry.created_at) >= first_day,
-                func.date(DiaryEntry.created_at) <= last_day
+                DiaryEntry.date >= first_day,  # Changed from func.date(DiaryEntry.created_at)
+                DiaryEntry.date <= last_day    # Changed from func.date(DiaryEntry.created_at)
             )
         ).all()
         
@@ -79,9 +79,9 @@ class TimelineService:
         # Organize data by date
         calendar_data = {}
         
-        # Process moods
+        # FIXED: Process moods using the date field
         for mood in moods:
-            date_str = mood.created_at.date().isoformat()
+            date_str = mood.date.isoformat()  # Use mood.date instead of mood.created_at.date()
             if date_str not in calendar_data:
                 calendar_data[date_str] = {}
             calendar_data[date_str]['mood'] = {
@@ -90,9 +90,9 @@ class TimelineService:
                 'id': mood.id
             }
         
-        # Process diary entries
+        # FIXED: Process diary entries using the date field
         for entry in diary_entries:
-            date_str = entry.created_at.date().isoformat()
+            date_str = entry.date.isoformat()  # Use entry.date instead of entry.created_at.date()
             if date_str not in calendar_data:
                 calendar_data[date_str] = {}
             calendar_data[date_str]['diary'] = {
@@ -241,7 +241,7 @@ class TimelineService:
                 DiaryEntry.user_id == user.id,
                 func.lower(DiaryEntry.content).like(search_pattern)
             )
-        ).order_by(DiaryEntry.created_at.desc()).limit(limit).all()
+        ).order_by(DiaryEntry.date.desc()).limit(limit).all()  # Changed to order by date instead of created_at
         
         # Search mood notes
         mood_results = db.query(Mood).filter(
@@ -250,7 +250,7 @@ class TimelineService:
                 Mood.note.isnot(None),
                 func.lower(Mood.note).like(search_pattern)
             )
-        ).order_by(Mood.created_at.desc()).limit(limit).all()
+        ).order_by(Mood.date.desc()).limit(limit).all()  # Changed to order by date instead of created_at
         
         # Search capsule titles and messages
         capsule_results = db.query(Capsule).filter(
@@ -280,7 +280,7 @@ class TimelineService:
             
             results.append({
                 'type': 'diary',
-                'date': entry.created_at.date().isoformat(),
+                'date': entry.date.isoformat(),  # Use entry.date instead of entry.created_at.date()
                 'excerpt': excerpt,
                 'word_count': entry.word_count,
                 'id': entry.id
@@ -289,7 +289,7 @@ class TimelineService:
         for mood in mood_results:
             results.append({
                 'type': 'mood',
-                'date': mood.created_at.date().isoformat(),
+                'date': mood.date.isoformat(),  # Use mood.date instead of mood.created_at.date()
                 'excerpt': mood.note,
                 'mood_level': mood.mood_level,
                 'id': mood.id
@@ -339,17 +339,18 @@ class TimelineService:
         entry_date: date
     ) -> Dict:
         """Get complete entry details for a specific date"""
+        # FIXED: Query by the date field instead of func.date(created_at)
         mood = db.query(Mood).filter(
             and_(
                 Mood.user_id == user.id, 
-                func.date(Mood.created_at) == entry_date
+                Mood.date == entry_date  # Changed from func.date(Mood.created_at) == entry_date
             )
         ).first()
         
         diary = db.query(DiaryEntry).filter(
             and_(
                 DiaryEntry.user_id == user.id, 
-                func.date(DiaryEntry.created_at) == entry_date
+                DiaryEntry.date == entry_date  # Changed from func.date(DiaryEntry.created_at) == entry_date
             )
         ).first()
         

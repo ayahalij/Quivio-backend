@@ -1,4 +1,4 @@
-# app/api/endpoints/daily.py - FIXED VERSION
+# app/api/endpoints/daily.py - COMPLETE FIXED VERSION with Debug Logging
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -51,6 +51,12 @@ async def create_mood(
     else:
         target_date = date.today()
     
+    # DEBUG LOGGING
+    print(f"MOOD DEBUG: entry_date={entry_date}, target_date={target_date}")
+    print(f"MOOD DEBUG: user_id={current_user.id}, mood_level={mood_data.mood_level}")
+    print(f"MOOD DEBUG: note='{mood_data.note}' (length: {len(mood_data.note) if mood_data.note else 0})")
+    print(f"MOOD DEBUG: today={date.today()}")
+    
     # Check if entry can be edited (only for today's entries)
     if target_date == date.today() and not can_edit_entry(target_date):
         raise HTTPException(
@@ -65,14 +71,19 @@ async def create_mood(
     ).first()
     
     if existing_mood:
-        # Update existing mood
+        print(f"MOOD DEBUG: Updating existing mood for {target_date}")
+        print(f"MOOD DEBUG: Old values: level={existing_mood.mood_level}, note='{existing_mood.note}'")
+        
         existing_mood.mood_level = mood_data.mood_level
         existing_mood.note = mood_data.note
         db.commit()
         db.refresh(existing_mood)
+        
+        print(f"MOOD DEBUG: Updated values: level={existing_mood.mood_level}, note='{existing_mood.note}', date={existing_mood.date}")
         return existing_mood
     
     # Create new mood
+    print(f"MOOD DEBUG: Creating new mood for {target_date}")
     new_mood = MoodModel(
         user_id=current_user.id,
         mood_level=mood_data.mood_level,
@@ -82,6 +93,8 @@ async def create_mood(
     db.add(new_mood)
     db.commit()
     db.refresh(new_mood)
+    
+    print(f"MOOD DEBUG: Created values: level={new_mood.mood_level}, note='{new_mood.note}', date={new_mood.date}")
     return new_mood
 
 @router.post("/diary", response_model=DiaryEntry)
@@ -105,6 +118,11 @@ async def create_diary(
     else:
         target_date = date.today()
     
+    # DEBUG LOGGING
+    print(f"DIARY DEBUG: entry_date={entry_date}, target_date={target_date}")
+    print(f"DIARY DEBUG: user_id={current_user.id}, content length={len(diary_data.content)}")
+    print(f"DIARY DEBUG: today={date.today()}")
+    
     # Check if entry can be edited (only for today's entries)
     if target_date == date.today() and not can_edit_entry(target_date):
         raise HTTPException(
@@ -121,14 +139,19 @@ async def create_diary(
     ).first()
     
     if existing_diary:
-        # Update existing diary
+        print(f"DIARY DEBUG: Updating existing diary for {target_date}")
+        print(f"DIARY DEBUG: Old word count: {existing_diary.word_count}")
+        
         existing_diary.content = diary_data.content
         existing_diary.word_count = word_count
         db.commit()
         db.refresh(existing_diary)
+        
+        print(f"DIARY DEBUG: Updated word count: {existing_diary.word_count}, date={existing_diary.date}")
         return existing_diary
     
     # Create new diary
+    print(f"DIARY DEBUG: Creating new diary for {target_date}")
     new_diary = DiaryModel(
         user_id=current_user.id,
         content=diary_data.content,
@@ -138,6 +161,8 @@ async def create_diary(
     db.add(new_diary)
     db.commit()
     db.refresh(new_diary)
+    
+    print(f"DIARY DEBUG: Created word count: {new_diary.word_count}, date={new_diary.date}")
     return new_diary
 
 @router.get("/mood")
@@ -222,6 +247,9 @@ async def get_daily_entry(
     else:
         target_date = date.today()
     
+    print(f"GET ENTRY DEBUG: entry_date={entry_date}, target_date={target_date}")
+    print(f"GET ENTRY DEBUG: user_id={current_user.id}")
+    
     # Get mood
     mood = db.query(MoodModel).filter(
         MoodModel.user_id == current_user.id,
@@ -234,12 +262,21 @@ async def get_daily_entry(
         DiaryModel.date == target_date
     ).first()
     
-    return {
+    print(f"GET ENTRY DEBUG: Found mood={mood is not None}, diary={diary is not None}")
+    if mood:
+        print(f"GET ENTRY DEBUG: Mood data - level={mood.mood_level}, note='{mood.note}', date={mood.date}")
+    if diary:
+        print(f"GET ENTRY DEBUG: Diary data - words={diary.word_count}, date={diary.date}")
+    
+    result = {
         "date": target_date.isoformat(),
         "mood": mood,
         "diary": diary,
         "can_edit": can_edit_entry(target_date) if target_date == date.today() else False
     }
+    
+    print(f"GET ENTRY DEBUG: Returning data for date {target_date}")
+    return result
 
 @router.get("/")
 async def daily_root():
