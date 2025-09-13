@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.core.deps import get_current_user
@@ -6,7 +6,7 @@ from app.models.user import User
 from app.schemas.challenge import ChallengeResponse, UserChallenge, UserChallengeUpdate
 from app.services.challenge_service import ChallengeService
 from datetime import date
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -34,9 +34,21 @@ async def complete_challenge(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Complete a challenge"""
+    """Complete a challenge without photo (just mark as done)"""
     return ChallengeService.complete_challenge(
         db, current_user, challenge_id, update_data.photo_url
+    )
+
+@router.post("/complete-with-photo/{challenge_id}", response_model=UserChallenge)
+async def complete_challenge_with_photo(
+    challenge_id: int,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Complete a challenge with photo upload"""
+    return await ChallengeService.complete_challenge_with_photo(
+        db, current_user, challenge_id, file
     )
 
 @router.get("/history/me", response_model=List[UserChallenge])

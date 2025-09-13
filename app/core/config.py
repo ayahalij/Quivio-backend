@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE: int = 10485760  # 10MB
     
-    
+
         
     # Email
     SMTP_HOST: str = ""

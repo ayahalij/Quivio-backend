@@ -4,10 +4,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 import os
 import time
-from app.api.endpoints import capsules
-from app.api.endpoints import analytics
-from app.api.endpoints import photos
-
 
 from app.core.config import settings
 from app.database import engine, Base
@@ -19,7 +15,7 @@ try:
 except ImportError as e:
     print(f"❌ Model import error: {e}")
 
-# Try to import auth router
+# Import all routers
 try:
     from app.api.endpoints import auth
     auth_available = True
@@ -28,7 +24,6 @@ except ImportError as e:
     print(f"❌ Auth router import error: {e}")
     auth_available = False
 
-# Try to import daily router
 try:
     from app.api.endpoints import daily
     daily_available = True
@@ -37,7 +32,6 @@ except ImportError as e:
     print(f"❌ Daily router import error: {e}")
     daily_available = False
 
-# Try to import challenges router
 try:
     from app.api.endpoints import challenges
     challenges_available = True
@@ -46,7 +40,6 @@ except ImportError as e:
     print(f"❌ Challenges router import error: {e}")
     challenges_available = False
 
-# Try to import timeline router
 try:
     from app.api.endpoints import timeline
     timeline_available = True
@@ -55,7 +48,6 @@ except ImportError as e:
     print(f"❌ Timeline router import error: {e}")
     timeline_available = False
 
-# Try to import users router
 try:
     from app.api.endpoints import users
     users_available = True
@@ -64,8 +56,34 @@ except ImportError as e:
     print(f"❌ Users router import error: {e}")
     users_available = False
 
+try:
+    from app.api.endpoints import capsules
+    capsules_available = True
+    print("✅ Capsules router imported successfully")
+except ImportError as e:
+    print(f"❌ Capsules router import error: {e}")
+    capsules_available = False
+
+try:
+    from app.api.endpoints import analytics
+    analytics_available = True
+    print("✅ Analytics router imported successfully")
+except ImportError as e:
+    print(f"❌ Analytics router import error: {e}")
+    analytics_available = False
+
+try:
+    from app.api.endpoints import photos
+    photos_available = True
+    print("✅ Photos router imported successfully")
+except ImportError as e:
+    print(f"❌ Photos router import error: {e}")
+    photos_available = False
+
 # Create database tables
+print("Creating database tables...")
 Base.metadata.create_all(bind=engine)
+print("✅ Database tables created")
 
 # Create FastAPI instance
 app = FastAPI(
@@ -96,21 +114,42 @@ async def add_process_time_header(request: Request, call_next):
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Include routers if available
+# Include all routers
+print("Registering API routes...")
+
 if auth_available:
     app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+    print("✅ Auth routes registered")
 
 if daily_available:
     app.include_router(daily.router, prefix="/daily", tags=["Daily Entries"])
+    print("✅ Daily routes registered")
 
 if challenges_available:
     app.include_router(challenges.router, prefix="/challenges", tags=["Challenges"])
+    print("✅ Challenges routes registered")
 
 if timeline_available:
     app.include_router(timeline.router, prefix="/timeline", tags=["Timeline"])
+    print("✅ Timeline routes registered")
 
 if users_available:
     app.include_router(users.router, prefix="/users", tags=["Users"])
+    print("✅ Users routes registered")
+
+if capsules_available:
+    app.include_router(capsules.router, prefix="/capsules", tags=["Capsules"])
+    print("✅ Capsules routes registered")
+
+if analytics_available:
+    app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
+    print("✅ Analytics routes registered")
+
+if photos_available:
+    app.include_router(photos.router, prefix="/photos", tags=["Photos"])
+    print("✅ Photos routes registered")
+
+print("🚀 All available routes registered successfully")
 
 # Root endpoint
 @app.get("/")
@@ -120,9 +159,16 @@ async def root():
         "version": "1.0.0",
         "docs": "/docs",
         "status": "healthy",
-        "auth_available": auth_available,
-        "daily_available": daily_available,
-        "challenges_available": challenges_available
+        "available_endpoints": {
+            "auth": auth_available,
+            "daily": daily_available,
+            "challenges": challenges_available,
+            "timeline": timeline_available,
+            "users": users_available,
+            "capsules": capsules_available,
+            "analytics": analytics_available,
+            "photos": photos_available
+        }
     }
 
 # Health check endpoint
@@ -132,9 +178,16 @@ async def health_check():
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
         "timestamp": time.time(),
-        "auth_available": auth_available,
-        "daily_available": daily_available,
-        "challenges_available": challenges_available
+        "available_endpoints": {
+            "auth": auth_available,
+            "daily": daily_available,
+            "challenges": challenges_available,
+            "timeline": timeline_available,
+            "users": users_available,
+            "capsules": capsules_available,
+            "analytics": analytics_available,
+            "photos": photos_available
+        }
     }
 
 # Global exception handler
@@ -150,8 +203,35 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-app.include_router(capsules.router, prefix="/capsules", tags=["Capsules"])
-
-app.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
-
-app.include_router(photos.router, prefix="/photos", tags=["Photos"])
+# Auto-initialize challenges on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize sample data if needed"""
+    print("🔄 Running startup tasks...")
+    
+    try:
+        from app.services.challenge_service import ChallengeService
+        from app.database import get_db
+        from app.models.challenge import DailyChallenge
+        
+        # Get database session
+        db = next(get_db())
+        
+        # Check if challenges exist
+        existing_challenges = db.query(DailyChallenge).filter(
+            DailyChallenge.is_active == True
+        ).count()
+        
+        if existing_challenges == 0:
+            print("🎯 No challenges found, initializing sample challenges...")
+            ChallengeService.create_sample_challenges(db)
+            print("✅ Sample challenges created successfully")
+        else:
+            print(f"✅ Found {existing_challenges} existing challenges")
+            
+        db.close()
+        
+    except Exception as e:
+        print(f"❌ Startup task failed: {e}")
+    
+    print("🚀 Quivio API startup complete")
