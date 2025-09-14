@@ -5,6 +5,8 @@ from .photo import Photo
 from .challenge import DailyChallenge, UserChallenge
 from .capsule import Capsule, CapsuleMedia
 from .achievement import Achievement, UserAchievement
+from .password_reset import PasswordResetToken
+from .capsule_recipient import CapsuleRecipient
 
 __all__ = [
     "User",

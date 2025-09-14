@@ -10,7 +10,7 @@ from app.database import engine, Base
 
 # Import all models to register them with Base
 try:
-    from app.models import user, mood, diary, photo, challenge, capsule, achievement
+    from app.models import user, mood, diary, photo, challenge, capsule, achievement, capsule_recipient
     print("✅ All models imported successfully")
 except ImportError as e:
     print(f"❌ Model import error: {e}")

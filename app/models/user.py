@@ -25,3 +25,4 @@ class User(Base):
     user_challenges = relationship("UserChallenge", back_populates="user", cascade="all, delete-orphan")
     capsules = relationship("Capsule", back_populates="user", cascade="all, delete-orphan")
     achievements = relationship("UserAchievement", back_populates="user", cascade="all, delete-orphan")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")

@@ -1,3 +1,4 @@
+# app/models/capsule.py
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -13,7 +14,6 @@ class Capsule(Base):
     message = Column(Text, nullable=False)
     is_private = Column(Boolean, default=True, nullable=False)
     recipient_email = Column(String(255), nullable=True)
-    # For SQLite, we'll store as string and handle timezone in Python
     open_date = Column(DateTime, nullable=False)
     is_opened = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
@@ -22,6 +22,7 @@ class Capsule(Base):
     # Relationships
     user = relationship("User", back_populates="capsules")
     media = relationship("CapsuleMedia", back_populates="capsule", cascade="all, delete-orphan")
+    recipients = relationship("CapsuleRecipient", back_populates="capsule", cascade="all, delete-orphan")
     
     @property
     def can_be_opened(self):
@@ -54,5 +55,5 @@ class CapsuleMedia(Base):
     media_type = Column(String(50), default="image", nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     
-    # Relationships
+    # Relationships - ONLY the capsule relationship
     capsule = relationship("Capsule", back_populates="media")
