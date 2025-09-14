@@ -1,6 +1,19 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
+
+class CapsuleMediaBase(BaseModel):
+    media_url: str
+    media_type: str  # "image" or "video"
+
+class CapsuleMedia(CapsuleMediaBase):
+    id: int
+    capsule_id: int
+    media_cloudinary_id: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 class CapsuleCreate(BaseModel):
     title: str
@@ -14,7 +27,7 @@ class CapsuleUpdate(BaseModel):
     message: Optional[str] = None
     open_date: Optional[datetime] = None
 
-class Capsule(BaseModel):
+class CapsuleBase(BaseModel):
     id: int
     user_id: int
     title: str
@@ -28,3 +41,11 @@ class Capsule(BaseModel):
     
     class Config:
         from_attributes = True
+
+# Original capsule schema (for backward compatibility)
+class Capsule(CapsuleBase):
+    pass
+
+# Enhanced capsule schema with media
+class CapsuleWithMedia(CapsuleBase):
+    media: List[CapsuleMedia] = []
