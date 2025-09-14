@@ -115,7 +115,7 @@ class TimelineService:
                 'has_location': photo.location_lat is not None
             })
         
-        # Process challenges
+        # Process challenges - ENHANCED with photo data
         for challenge in challenges:
             date_str = challenge.created_at.date().isoformat()
             if date_str not in calendar_data:
@@ -124,7 +124,11 @@ class TimelineService:
                 'id': challenge.id,
                 'challenge_text': challenge.challenge.challenge_text if challenge.challenge else None,
                 'is_completed': challenge.is_completed,
-                'difficulty': challenge.challenge.difficulty_level if challenge.challenge else None
+                'difficulty_level': challenge.challenge.difficulty_level if challenge.challenge else None,
+                'photo_url': challenge.photo_url,
+                'photo_cloudinary_id': challenge.photo_cloudinary_id,
+                'completed_at': challenge.completed_at.isoformat() if challenge.completed_at else None,
+                # Remove this line: 'mood_level': challenge.mood_level
             }
         
         # Process capsules created
@@ -406,8 +410,10 @@ class TimelineService:
             'challenge': {
                 'challenge_text': challenge.challenge.challenge_text if challenge and challenge.challenge else None,
                 'is_completed': challenge.is_completed if challenge else False,
-                'difficulty': challenge.challenge.difficulty_level if challenge and challenge.challenge else None,
-                'photo_url': challenge.photo_url if challenge else None
+                'difficulty_level': challenge.challenge.difficulty_level if challenge and challenge.challenge else None,
+                'photo_url': challenge.photo_url if challenge else None,
+                'photo_cloudinary_id': challenge.photo_cloudinary_id if challenge else None,
+                'completed_at': challenge.completed_at.isoformat() if challenge and challenge.completed_at else None,
             } if challenge else None,
             'capsules': {
                 'created': [{
