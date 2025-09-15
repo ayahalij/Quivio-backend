@@ -426,7 +426,7 @@ async def get_capsule(
 
 # Background email sending function
 async def send_capsule_opening_emails(capsule_id: int, db: Session):
-    """Send emails to all recipients when a capsule opens"""
+    """Send emails to all recipients when a capsule opens with media attachments"""
     
     capsule = db.query(Capsule).filter(Capsule.id == capsule_id).first()
     if not capsule or not capsule.is_opened:
@@ -436,6 +436,19 @@ async def send_capsule_opening_emails(capsule_id: int, db: Session):
         CapsuleRecipient.capsule_id == capsule_id,
         CapsuleRecipient.email_sent == False
     ).all()
+    
+    media_attachments = db.query(CapsuleMedia).filter(
+        CapsuleMedia.capsule_id == capsule_id
+    ).all()
+    
+    # Convert media to the format expected by email service
+    media_list = []
+    for media in media_attachments:
+        media_list.append({
+            'media_url': media.media_url,
+            'media_type': media.media_type,
+            'media_id': media.id
+        })
     
     for recipient in recipients:
         try:
@@ -448,7 +461,8 @@ async def send_capsule_opening_emails(capsule_id: int, db: Session):
                 capsule_message=capsule.message,
                 sender_name=capsule.user.username,
                 created_date=capsule.created_at.strftime("%B %d, %Y"),
-                is_personal=is_personal
+                is_personal=is_personal,
+                media_attachments=media_list  # NEW: Pass actual media data
             )
             
             if email_sent:
