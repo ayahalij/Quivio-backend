@@ -22,11 +22,12 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = '689338187517471'
     CLOUDINARY_API_SECRET: str = 'WcIuDIupzD49hEDjO2DsBv5oDMk'
         
-    # Email Configuration - Match your .env exactly
+    # Email Configuration - Updated to match Railway vars
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""  # Added this field
     EMAILS_ENABLED: bool = False
     EMAIL_FROM_NAME: str = "Quivio"
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 1
