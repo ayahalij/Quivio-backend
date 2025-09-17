@@ -17,19 +17,22 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_FILE_SIZE: int = 10485760  # 10MB
     
-
-
+    # Cloudinary
+    CLOUDINARY_CLOUD_NAME: str = 'dyq86hr38'
+    CLOUDINARY_API_KEY: str = '689338187517471'
+    CLOUDINARY_API_SECRET: str = 'WcIuDIupzD49hEDjO2DsBv5oDMk'
         
-    # Email
-    SMTP_HOST: str = ""
+    # Email Configuration - Match your .env exactly
+    SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
-    # NEW EMAIL SETTINGS
-    EMAILS_ENABLED: bool = False  # Set to True when email is configured
+    EMAILS_ENABLED: bool = False
     EMAIL_FROM_NAME: str = "Quivio"
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 1
-    FRONTEND_URL: str = "http://localhost:3000"  # For password reset links
+    
+    # Frontend URL
+    FRONTEND_URL: str = "http://localhost:3000"
     
     # Environment
     ENVIRONMENT: str = "development"
@@ -42,9 +45,16 @@ class Settings(BaseSettings):
         env_file = ".env"
         case_sensitive = True
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Auto-add frontend URL to CORS for production
+        if self.ENVIRONMENT == "production" and self.FRONTEND_URL:
+            if self.FRONTEND_URL not in self.CORS_ORIGINS:
+                self.CORS_ORIGINS.append(self.FRONTEND_URL)
+
 settings = Settings()
 
-# Configure cloudinary with the actual settings
+# Configure cloudinary
 cloudinary.config(
     cloud_name=settings.CLOUDINARY_CLOUD_NAME,
     api_key=settings.CLOUDINARY_API_KEY,
