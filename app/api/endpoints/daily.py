@@ -1,4 +1,4 @@
-# app/api/endpoints/daily.py - COMPLETE FIXED VERSION with Debug Logging
+# app/api/endpoints/daily.py
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from app.database import get_db

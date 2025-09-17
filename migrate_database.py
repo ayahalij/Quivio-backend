@@ -1,5 +1,3 @@
-# Replace your migrate_database.py with this corrected version:
-
 import sys
 import os
 

@@ -1,5 +1,4 @@
-# Replace your entire app/api/endpoints/capsules.py with this enhanced version:
-
+# app/api/endpoints/capsules.py
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from app.database import get_db
