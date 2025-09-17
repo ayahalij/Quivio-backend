@@ -488,10 +488,20 @@ class EmailService:
 
             # Create secure connection and send
             context = ssl.create_default_context()
-            with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
-                server.starttls(context=context)
-                server.login(self.smtp_user, self.smtp_password)
-                server.send_message(msg)
+            # Fixed version that handles both ports:
+            if self.smtp_port == 465:
+                # Use SSL from the start for port 465
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL(self.smtp_host, self.smtp_port, context=context) as server:
+                    server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
+            else:
+                # Use STARTTLS for port 587
+                context = ssl.create_default_context()
+                with smtplib.SMTP(self.smtp_host, self.smtp_port) as server:
+                    server.starttls(context=context)
+                    server.login(self.smtp_user, self.smtp_password)
+                    server.send_message(msg)
 
             logger.info(f"Email with media sent successfully to {to_emails}")
             return True
