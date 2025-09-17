@@ -1,0 +1,14 @@
+# Minimal requirements that work reliably on Render
+fastapi>=0.100.0
+uvicorn[standard]>=0.20.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.0
+python-multipart>=0.0.5
+python-dotenv>=1.0.0
+pydantic>=2.0.0,<2.5.0
+pydantic-settings>=2.0.0,<2.1.0
+email-validator>=2.0.0
+cloudinary>=1.30.0
+jinja2>=3.0.0
