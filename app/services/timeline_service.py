@@ -1,3 +1,4 @@
+# app/services/timeline_service.py
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 from app.models.user import User
@@ -236,27 +237,40 @@ class TimelineService:
         search_term: str,
         limit: int = 50
     ) -> Dict:
-        """Search through diary entries and mood notes"""
+        """Search through diary entries, mood notes, photos, and capsules"""
         search_pattern = f"%{search_term.lower()}%"
         
-        # Search diary entries
+        # Search diary entries (existing - working)
         diary_results = db.query(DiaryEntry).filter(
             and_(
                 DiaryEntry.user_id == user.id,
                 func.lower(DiaryEntry.content).like(search_pattern)
             )
-        ).order_by(DiaryEntry.date.desc()).limit(limit).all()  # Changed to order by date instead of created_at
+        ).order_by(DiaryEntry.date.desc()).limit(limit).all()
         
-        # Search mood notes
+        # Search mood notes (existing - working)
         mood_results = db.query(Mood).filter(
             and_(
                 Mood.user_id == user.id,
                 Mood.note.isnot(None),
                 func.lower(Mood.note).like(search_pattern)
             )
-        ).order_by(Mood.date.desc()).limit(limit).all()  # Changed to order by date instead of created_at
+        ).order_by(Mood.date.desc()).limit(limit).all()
         
-        # Search capsule titles and messages
+        # Search photos by title (NEW - simple version)
+        photo_results = []
+        try:
+            photo_results = db.query(Photo).filter(
+                and_(
+                    Photo.user_id == user.id,
+                    func.lower(Photo.title).like(search_pattern)
+                )
+            ).order_by(Photo.date.desc()).limit(limit).all()
+        except Exception as e:
+            print(f"Photo search error: {e}")
+            # Continue without photos if there's an error
+        
+        # Search capsules (existing - working)
         capsule_results = db.query(Capsule).filter(
             and_(
                 Capsule.user_id == user.id,
@@ -270,8 +284,8 @@ class TimelineService:
         # Combine and format results
         results = []
         
+        # Format diary results (existing)
         for entry in diary_results:
-            # Find excerpt with search term
             content_lower = entry.content.lower()
             search_lower = search_term.lower()
             start_idx = max(0, content_lower.find(search_lower) - 50)
@@ -284,28 +298,41 @@ class TimelineService:
             
             results.append({
                 'type': 'diary',
-                'date': entry.date.isoformat(),  # Use entry.date instead of entry.created_at.date()
+                'date': entry.date.isoformat(),
                 'excerpt': excerpt,
                 'word_count': entry.word_count,
                 'id': entry.id
             })
         
+        # Format mood results (existing)
         for mood in mood_results:
             results.append({
                 'type': 'mood',
-                'date': mood.date.isoformat(),  # Use mood.date instead of mood.created_at.date()
+                'date': mood.date.isoformat(),
                 'excerpt': mood.note,
                 'mood_level': mood.mood_level,
                 'id': mood.id
             })
         
+        # Format photo results (NEW)
+        for photo in photo_results:
+            results.append({
+                'type': 'photo',
+                'date': photo.date.isoformat(),
+                'title': photo.title,
+                'excerpt': photo.title,  # Use title as excerpt for now
+                'photo_url': photo.image_url,
+                'has_location': photo.location_lat is not None,
+                'location_name': photo.location_name,
+                'id': photo.id
+            })
+        
+        # Format capsule results (existing)
         for capsule in capsule_results:
-            # Create excerpt from title and message
             title_match = search_term.lower() in capsule.title.lower()
             if title_match:
                 excerpt = f"Capsule: {capsule.title}"
             else:
-                # Find excerpt in message
                 message_lower = capsule.message.lower()
                 search_lower = search_term.lower()
                 start_idx = max(0, message_lower.find(search_lower) - 30)
