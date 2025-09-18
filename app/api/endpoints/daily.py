@@ -285,3 +285,30 @@ async def daily_root():
         "available": ["mood", "diary", "entry", "test"],
         "current_date": date.today().isoformat()
     }
+
+@router.get("/diary/{diary_id}")
+async def get_diary_by_id(
+    diary_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get a specific diary entry by ID with full content"""
+    diary = db.query(DiaryModel).filter(
+        DiaryModel.id == diary_id,
+        DiaryModel.user_id == current_user.id
+    ).first()
+    
+    if not diary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Diary entry not found"
+        )
+    
+    return {
+        "id": diary.id,
+        "content": diary.content,
+        "word_count": diary.word_count,
+        "date": diary.date,
+        "created_at": diary.created_at,
+        "updated_at": diary.updated_at
+    }

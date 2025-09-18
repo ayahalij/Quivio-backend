@@ -1,3 +1,4 @@
+# app/models/diary.py
 from sqlalchemy import Column, Integer, Text, Date, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -17,5 +18,5 @@ class DiaryEntry(Base):
     # Ensure one diary entry per user per day
     __table_args__ = (UniqueConstraint('user_id', 'date', name='_user_date_diary'),)
     
-    # Relationships
+    # Relationships - Use string references to avoid circular imports
     user = relationship("User", back_populates="diary_entries")
