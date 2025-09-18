@@ -20,11 +20,14 @@ async def get_mood_trends(
     db: Session = Depends(get_db)
 ):
     """Get mood trends for the specified number of days"""
-    start_date = date.today() - timedelta(days=days)
+    # Fix: Include today in the range
+    end_date = date.today()
+    start_date = end_date - timedelta(days=days-1)  # days-1 so we include today
     
     moods = db.query(Mood).filter(
         Mood.user_id == current_user.id,
-        Mood.date >= start_date
+        Mood.date >= start_date,
+        Mood.date <= end_date  # Explicitly include end_date (today)
     ).order_by(Mood.date).all()
     
     # Create a list for all days in range
@@ -48,14 +51,17 @@ async def get_mood_distribution(
     db: Session = Depends(get_db)
 ):
     """Get mood level distribution"""
-    start_date = date.today() - timedelta(days=days)
+    # Fix: Include today in the range
+    end_date = date.today()
+    start_date = end_date - timedelta(days=days-1)
     
     distribution = db.query(
         Mood.mood_level,
         func.count(Mood.mood_level).label('count')
     ).filter(
         Mood.user_id == current_user.id,
-        Mood.date >= start_date
+        Mood.date >= start_date,
+        Mood.date <= end_date
     ).group_by(Mood.mood_level).all()
     
     return {
@@ -72,18 +78,22 @@ async def get_activity_summary(
     db: Session = Depends(get_db)
 ):
     """Get daily activity summary"""
-    start_date = date.today() - timedelta(days=days)
+    # Fix: Include today in the range
+    end_date = date.today()
+    start_date = end_date - timedelta(days=days-1)
     
     # Get diary entries with word counts
     diary_entries = db.query(DiaryEntry).filter(
         DiaryEntry.user_id == current_user.id,
-        DiaryEntry.date >= start_date
+        DiaryEntry.date >= start_date,
+        DiaryEntry.date <= end_date
     ).all()
     
     # Get completed challenges
     challenges = db.query(UserChallenge).filter(
         UserChallenge.user_id == current_user.id,
         UserChallenge.date >= start_date,
+        UserChallenge.date <= end_date,
         UserChallenge.is_completed == True
     ).all()
     
@@ -110,10 +120,15 @@ async def get_insights(
     db: Session = Depends(get_db)
 ):
     """Get personalized insights based on user data"""
+    # Fix: Include today in the range
+    end_date = date.today()
+    start_date = end_date - timedelta(days=29)  # 30 days total including today
+    
     # Get recent mood data
     recent_moods = db.query(Mood).filter(
         Mood.user_id == current_user.id,
-        Mood.date >= date.today() - timedelta(days=30)
+        Mood.date >= start_date,
+        Mood.date <= end_date
     ).order_by(Mood.date.desc()).all()
     
     if not recent_moods:
