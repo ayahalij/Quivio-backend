@@ -412,12 +412,39 @@ class EmailService:
         text_content: Optional[str] = None,
         media_attachments: List[dict] = None
     ) -> bool:
-        """Send email using SendGrid API"""
+        """Send email using SendGrid API with inline image embedding"""
         if not self.enabled:
             logger.warning("SendGrid email service is disabled or not configured")
             return False
 
         try:
+            # Process media for inline embedding
+            attachments = []
+            
+            if media_attachments:
+                for i, media in enumerate(media_attachments):
+                    media_url = media.get('media_url')
+                    media_type = media.get('media_type')
+                    
+                    if media_type == 'image':
+                        # Download and resize image for embedding
+                        image_data = self.download_and_resize_image(media_url)
+                        if image_data:
+                            # Create content ID for inline embedding
+                            content_id = f"image_{i}"
+                            
+                            # Replace the URL in HTML with cid reference
+                            html_content = html_content.replace(media_url, f'cid:{content_id}')
+                            
+                            # Add as inline attachment
+                            attachments.append({
+                                "content": base64.b64encode(image_data).decode(),
+                                "type": "image/jpeg",
+                                "filename": f"image_{i}.jpg",
+                                "disposition": "inline",
+                                "content_id": content_id
+                            })
+
             # Prepare email data for SendGrid API
             email_data = {
                 "personalizations": [
@@ -445,22 +472,9 @@ class EmailService:
                     "value": text_content
                 })
 
-            # Add attachments if provided (for media)
-            if media_attachments:
-                attachments = []
-                for i, media in enumerate(media_attachments):
-                    if media.get('media_type') == 'image':
-                        image_data = self.download_and_resize_image(media.get('media_url'))
-                        if image_data:
-                            attachments.append({
-                                "content": base64.b64encode(image_data).decode(),
-                                "type": "image/jpeg",
-                                "filename": f"image_{i}.jpg",
-                                "disposition": "attachment"
-                            })
-                
-                if attachments:
-                    email_data["attachments"] = attachments
+            # Add inline attachments if any
+            if attachments:
+                email_data["attachments"] = attachments
 
             # Send email via SendGrid API
             headers = {
@@ -697,7 +711,7 @@ Happy journaling from the Quivio team!
         is_personal: bool = True,
         media_attachments: List[dict] = None
     ) -> bool:
-        """Send capsule opening notification email"""
+        """Send capsule opening notification email with embedded images and sender name"""
         
         media_count = len(media_attachments) if media_attachments else 0
         
@@ -710,6 +724,59 @@ Happy journaling from the Quivio team!
             greeting = "Hello!"
             intro = f"{sender_name} has shared a special memory capsule with you through Quivio!"
 
+        # Separate images and videos
+        images = [m for m in media_attachments if m.get('media_type') == 'image'] if media_attachments else []
+        videos = [m for m in media_attachments if m.get('media_type') == 'video'] if media_attachments else []
+
+        # Build media sections with inline images
+        photos_section = ""
+        if images:
+            image_items = ''.join([f'<div class="image-item"><img src="{image["media_url"]}" alt="Memory photo"></div>' for image in images])
+            photos_section = f"""
+            <h5 style="color: #8761a7; font-family: 'Kalam', cursive;">Photos ({len(images)}):</h5>
+            <div class="image-gallery">
+                {image_items}
+            </div>
+            """
+        
+        videos_section = ""
+        if videos:
+            video_links = ''.join([f'<a href="{video["media_url"]}" class="video-link" target="_blank">Watch Video {i+1}</a>' for i, video in enumerate(videos)])
+            videos_section = f"""
+            <h5 style="color: #8761a7; font-family: 'Kalam', cursive;">Videos ({len(videos)}):</h5>
+            <div class="video-links">
+                {video_links}
+            </div>
+            <p style="color: #8761a7; font-size: 14px; text-align: center; font-family: 'Kalam', cursive;">
+                Click the links above to view the videos in your browser.
+            </p>
+            """
+        
+        media_section_html = ""
+        if media_count > 0:
+            media_section_html = f"""
+            <div class="media-section">
+                <h4>Attached Memories ({media_count})</h4>
+                {photos_section}
+                {videos_section}
+            </div>
+            """
+        
+        about_section = ""
+        if not is_personal:
+            about_section = """
+            <div class="info-card">
+                <h4>About Quivio</h4>
+                <p>This memory capsule was shared with you through Quivio, a personal journaling platform that helps people preserve memories, track moods, and create meaningful connections with their future selves.</p>
+                <p>Ready to start your own journaling journey? Join thousands of others who are already preserving their precious moments!</p>
+            </div>
+            """
+        
+        action_button = f'<a href="{settings.FRONTEND_URL}/timeline" class="button">View in Quivio Timeline</a>' if is_personal else f'<a href="{settings.FRONTEND_URL}" class="button">Explore Quivio</a>'
+        
+        # Always show sender name in meta info
+        from_info = f'<p><strong>From:</strong> {sender_name}</p>'
+        
         html_template = f"""
         <!DOCTYPE html>
         <html>
@@ -749,17 +816,38 @@ Happy journaling from the Quivio team!
                         
                         <div class="meta-info">
                             <p><strong>Created:</strong> {created_date}</p>
+                            {from_info}
                         </div>
                     </div>
+
+                    {media_section_html}
                     
                     <div class="button-container">
-                        <a href="{settings.FRONTEND_URL}/timeline" class="button">View in Quivio Timeline</a>
+                        {action_button}
                     </div>
+                    
+                    {about_section}
+                </div>
+                
+                <div class="footer">
+                    <p>This memory capsule was created with Quivio</p>
+                    <p>Preserving memories, one moment at a time</p>
                 </div>
             </div>
         </body>
         </html>
         """
+        
+        # Create text version with media info
+        media_text = ""
+        if media_count > 0:
+            media_text = f"\n\nAttached Media ({media_count}):"
+            if images:
+                media_text += f"\n• {len(images)} photo(s)"
+            if videos:
+                media_text += f"\n• {len(videos)} video(s)"
+                for i, video in enumerate(videos, 1):
+                    media_text += f"\n  Video {i}: {video['media_url']}"
         
         text_content = f"""
 {greeting}
@@ -769,14 +857,16 @@ Happy journaling from the Quivio team!
 Memory Capsule: {capsule_title}
 
 Message:
-{capsule_message}
+{capsule_message}{media_text}
 
 Created: {created_date}
+From: {sender_name}
 
-View in Quivio: {settings.FRONTEND_URL}/timeline
+{'View in Quivio: ' + settings.FRONTEND_URL + '/timeline' if is_personal else 'Explore Quivio: ' + settings.FRONTEND_URL}
 
 ---
 This memory capsule was created with Quivio
+Preserving memories, one moment at a time
         """
         
         return await self.send_email_with_media(
@@ -785,6 +875,211 @@ This memory capsule was created with Quivio
             html_content=html_template,
             text_content=text_content.strip(),
             media_attachments=media_attachments
+        )
+
+    async def send_mood_reminder_email(self, email: str, username: str, days_missed: int) -> bool:
+        """Send mood tracking reminder email with login page styling"""
+        
+        # Different messaging based on days missed
+        if days_missed == 1:
+            message = "We noticed you missed tracking your mood yesterday."
+        elif days_missed <= 3:
+            message = f"It's been {days_missed} days since your last mood entry."
+        else:
+            message = f"We miss you! It's been {days_missed} days since your last mood check-in."
+
+        html_template = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>How are you feeling today?</title>
+            {self.get_base_styles()}
+        </head>
+        <body>
+            <div class="container">
+                <div class="logo">
+                    <h1>Quivio</h1>
+                </div>
+                
+                <div class="email-card">
+                    <div class="header-text">
+                        <h2>How are you feeling?</h2>
+                        <p>Your mood check-in reminder</p>
+                    </div>
+                    
+                    <div class="content-section">
+                        <p>Hello {username}!</p>
+                        <p>{message} Your emotional wellbeing matters, and tracking your mood helps you understand patterns and growth over time.</p>
+                    </div>
+                    
+                    <div class="highlight-card">
+                        <h3>Take a moment to check in with yourself</h3>
+                        <p>Self-awareness is the first step to emotional growth</p>
+                    </div>
+                    
+                    <div class="mood-indicators">
+                        <div class="mood-indicator mood-very-sad">😞</div>
+                        <div class="mood-indicator mood-sad">😕</div>
+                        <div class="mood-indicator mood-neutral">😐</div>
+                        <div class="mood-indicator mood-happy">😊</div>
+                        <div class="mood-indicator mood-very-happy">😄</div>
+                    </div>
+                    
+                    <div class="button-container">
+                        <a href="{settings.FRONTEND_URL}/dashboard" class="button">Track My Mood Now</a>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h4>Why track your mood?</h4>
+                        <ul>
+                            <li><strong>Identify patterns</strong> - Notice what affects your emotional state</li>
+                            <li><strong>Celebrate progress</strong> - See how far you've come</li>
+                            <li><strong>Build awareness</strong> - Develop emotional intelligence</li>
+                            <li><strong>Track wellness</strong> - Monitor your mental health journey</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h4>Quick Tip</h4>
+                        <p>Try to check in with your mood at the same time each day - many users find evening reflection works best, but choose what feels right for you!</p>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    <p>Taking care of your mental health, one day at a time</p>
+                    <p>With love from the Quivio team</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+Hello {username}!
+
+{message} Your emotional wellbeing matters, and tracking your mood helps you understand patterns and growth over time.
+
+Why track your mood?
+• Identify patterns - Notice what affects your emotional state
+• Celebrate progress - See how far you've come  
+• Build awareness - Develop emotional intelligence
+• Track wellness - Monitor your mental health journey
+
+Track your mood now: {settings.FRONTEND_URL}/dashboard
+
+Quick Tip: Try to check in with your mood at the same time each day - many users find evening reflection works best, but choose what feels right for you!
+
+---
+Taking care of your mental health, one day at a time
+With love from the Quivio team
+        """
+        
+        return await self.send_email(
+            to_emails=[email],
+            subject=f"How are you feeling today, {username}?",
+            html_content=html_template,
+            text_content=text_content
+        )
+
+    async def send_daily_challenge_email(self, email: str, username: str, challenge_text: str, difficulty: str) -> bool:
+        """Send daily photography challenge email with login page styling"""
+        
+        difficulty_class = f"difficulty-{difficulty.lower()}"
+
+        html_template = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Today's Photography Challenge</title>
+            {self.get_base_styles()}
+        </head>
+        <body>
+            <div class="container">
+                <div class="logo">
+                    <h1>Quivio</h1>
+                </div>
+                
+                <div class="email-card">
+                    <div class="header-text">
+                        <h2>Daily Challenge</h2>
+                        <p>Your photography challenge awaits!</p>
+                    </div>
+                    
+                    <div class="content-section">
+                        <p>Hello {username}!</p>
+                        <p>Ready for today's creative challenge? We've prepared something special to help you see the world through a new lens!</p>
+                    </div>
+                    
+                    <div class="highlight-card">
+                        <span class="difficulty-badge {difficulty_class}">{difficulty.upper()} CHALLENGE</span>
+                        <h3>Today's Mission:</h3>
+                        <div class="challenge-text">"{challenge_text}"</div>
+                    </div>
+                    
+                    <div class="button-container">
+                        <a href="{settings.FRONTEND_URL}/dashboard" class="button">Complete Challenge</a>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h4>Challenge Tips</h4>
+                        <ul>
+                            <li><strong>Take your time</strong> - Great photos come from patience and observation</li>
+                            <li><strong>Think creatively</strong> - Look for unique angles and perspectives</li>
+                            <li><strong>Pay attention to light</strong> - Natural lighting often works best</li>
+                            <li><strong>Tell a story</strong> - What emotion or message does your photo convey?</li>
+                            <li><strong>Have fun!</strong> - Challenges are about growth and creativity, not perfection</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h4>Why Take Challenges?</h4>
+                        <p>Photography challenges help you develop your creative eye, build consistency in your practice, and create a diverse collection of memories. Each challenge is designed to push your boundaries while keeping the experience enjoyable and rewarding.</p>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    <p>Capturing life's beauty, one challenge at a time</p>
+                    <p>Happy shooting from the Quivio team!</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+Hello {username}!
+
+Ready for today's creative challenge? We've prepared something special to help you see the world through a new lens!
+
+{difficulty.upper()} CHALLENGE
+Today's Mission: "{challenge_text}"
+
+Challenge Tips:
+• Take your time - Great photos come from patience and observation
+• Think creatively - Look for unique angles and perspectives  
+• Pay attention to light - Natural lighting often works best
+• Tell a story - What emotion or message does your photo convey?
+• Have fun! - Challenges are about growth and creativity, not perfection
+
+Complete your challenge: {settings.FRONTEND_URL}/dashboard
+
+Why Take Challenges?
+Photography challenges help you develop your creative eye, build consistency in your practice, and create a diverse collection of memories.
+
+---
+Capturing life's beauty, one challenge at a time
+Happy shooting from the Quivio team!
+        """
+        
+        return await self.send_email(
+            to_emails=[email],
+            subject=f"Today's Photography Challenge ({difficulty.title()}) - {username}",
+            html_content=html_template,
+            text_content=text_content
         )
 
 # Create global instance
