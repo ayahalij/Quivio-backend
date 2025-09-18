@@ -17,7 +17,6 @@ A personal lifestyle journaling platform backend built with FastAPI that helps u
 - **Database:** SQLite (development) / PostgreSQL (production ready)
 - **Authentication:** JWT tokens with refresh capability
 - **Image Storage:** Cloudinary integration (partial)
-- **Documentation:** Auto-generated OpenAPI/Swagger docs
 
 ## Installation
 
@@ -109,6 +108,9 @@ Once running, visit:
 - **DailyChallenge** - Photography challenge templates
 - **UserChallenge** - User's challenge attempts
 - **Capsule** - Time-locked memories (planned feature)
+
+### Entity Relationship Diagram (ERD)
+![ERD](ERD.png)
 
 ### Key Features
 - One mood and diary entry per user per day
