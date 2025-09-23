@@ -1,3 +1,4 @@
+# app/services/challenge_service.py
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, UploadFile
 from app.models.user import User
@@ -40,10 +41,13 @@ class ChallengeService:
         ).first()
         
         if not user_mood:
-            # No mood set, return a neutral challenge
-            mood_level = 3
-        else:
-            mood_level = user_mood.mood_level
+            # No mood set yet - return a message to set mood first
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Please log your mood first to get a personalized daily challenge"
+            )
+        
+        mood_level = user_mood.mood_level
         
         # Get available challenges for this mood level
         available_challenges = db.query(DailyChallenge).filter(
@@ -70,7 +74,75 @@ class ChallengeService:
         user_challenge = UserChallenge(
             user_id=user.id,
             challenge_id=selected_challenge.id,
-            mood_id=user_mood.id if user_mood else None,
+            mood_id=user_mood.id,  # Always link to the mood
+            date=entry_date,
+            is_completed=False
+        )
+        
+        db.add(user_challenge)
+        db.commit()
+        db.refresh(user_challenge)
+        
+        return ChallengeResponse(
+            challenge=selected_challenge,
+            user_challenge=user_challenge,
+            can_complete=entry_date == date.today()
+        )
+    
+    @staticmethod
+    def update_challenge_after_mood_change(
+        db: Session,
+        user: User,
+        new_mood: Mood,
+        entry_date: date = None
+    ) -> Optional[ChallengeResponse]:
+        """Update or create challenge after mood is updated"""
+        if entry_date is None:
+            entry_date = date.today()
+        
+        # Check if user already has a challenge for this date
+        existing_challenge = db.query(UserChallenge).filter(
+            UserChallenge.user_id == user.id,
+            UserChallenge.date == entry_date
+        ).first()
+        
+        # If challenge exists and is already completed, don't change it
+        if existing_challenge and existing_challenge.is_completed:
+            return ChallengeResponse(
+                challenge=existing_challenge.challenge,
+                user_challenge=existing_challenge,
+                can_complete=entry_date == date.today()
+            )
+        
+        # If challenge exists but not completed, update it with new mood-based challenge
+        if existing_challenge and not existing_challenge.is_completed:
+            # Delete the old uncompleted challenge
+            db.delete(existing_challenge)
+            db.commit()
+        
+        # Get available challenges for the new mood level
+        available_challenges = db.query(DailyChallenge).filter(
+            DailyChallenge.mood_trigger == new_mood.mood_level,
+            DailyChallenge.is_active == True
+        ).all()
+        
+        if not available_challenges:
+            # Fallback to any active challenge
+            available_challenges = db.query(DailyChallenge).filter(
+                DailyChallenge.is_active == True
+            ).all()
+        
+        if not available_challenges:
+            return None
+        
+        # Select a random challenge
+        selected_challenge = random.choice(available_challenges)
+        
+        # Create new user challenge
+        user_challenge = UserChallenge(
+            user_id=user.id,
+            challenge_id=selected_challenge.id,
+            mood_id=new_mood.id,
             date=entry_date,
             is_completed=False
         )
@@ -283,8 +355,7 @@ class ChallengeService:
             {"text": "Capture yourself in 1 photo doing something you love", "mood": 5, "difficulty": "easy"},
             {"text": "Take 1 photo that represents joy or celebration", "mood": 5, "difficulty": "hard"},
             {"text": "Capture 1 reflection of yourself in something unexpected", "mood": 5, "difficulty": "medium"},
-            {"text": "Take 1 photo that feels like a memory you’ll treasure", "mood": 5, "difficulty": "medium"},
-
+            {"text": "Take 1 photo that feels like a memory you'll treasure", "mood": 5, "difficulty": "medium"},
         ]
         
         for challenge_data in sample_challenges:

@@ -8,6 +8,7 @@ from app.schemas.mood import MoodCreate, Mood
 from app.schemas.diary import DiaryEntryCreate, DiaryEntry
 from app.models.mood import Mood as MoodModel
 from app.models.diary import DiaryEntry as DiaryModel
+from app.services.challenge_service import ChallengeService
 from datetime import date, datetime, time
 from typing import Optional
 
@@ -80,6 +81,19 @@ async def create_mood(
         db.refresh(existing_mood)
         
         print(f"MOOD DEBUG: Updated values: level={existing_mood.mood_level}, note='{existing_mood.note}', date={existing_mood.date}")
+        
+        # Update challenge based on new mood (only for today)
+        if target_date == date.today():
+            try:
+                updated_challenge = ChallengeService.update_challenge_after_mood_change(
+                    db, current_user, existing_mood, target_date
+                )
+                print(f"CHALLENGE DEBUG: Challenge updated after mood change: {updated_challenge is not None}")
+            except Exception as e:
+                print(f"CHALLENGE DEBUG: Error updating challenge: {e}")
+                # Don't fail the mood update if challenge update fails
+                pass
+        
         return existing_mood
     
     # Create new mood
@@ -95,6 +109,19 @@ async def create_mood(
     db.refresh(new_mood)
     
     print(f"MOOD DEBUG: Created values: level={new_mood.mood_level}, note='{new_mood.note}', date={new_mood.date}")
+    
+    # Create challenge based on new mood (only for today)
+    if target_date == date.today():
+        try:
+            new_challenge = ChallengeService.update_challenge_after_mood_change(
+                db, current_user, new_mood, target_date
+            )
+            print(f"CHALLENGE DEBUG: Challenge created after mood submission: {new_challenge is not None}")
+        except Exception as e:
+            print(f"CHALLENGE DEBUG: Error creating challenge: {e}")
+            # Don't fail the mood creation if challenge creation fails
+            pass
+    
     return new_mood
 
 @router.post("/diary", response_model=DiaryEntry)
